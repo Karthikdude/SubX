@@ -50,6 +50,11 @@ SubX is designed to help security researchers and bug bounty hunters quickly ass
     ```bash
     go build -o subx main.go
     ```
+    
+4. **Move to Global:**
+    ```bash
+    sudo mv subx /usr/local/bin/
+    ```
 
 ## Usage
 
@@ -58,13 +63,13 @@ SubX is a command-line tool with several options. Below are a few examples:
 ### Scan a Single Domain
 
 ```bash
-./subx -u example.com -https
+subx -u example.com -https -ssl -error
 ```
 
 ### Scan a List of Subdomains
 
 ```bash
-./subx -l subdomains.txt -https -o results.json
+subx -l subdomains.txt -https -error -ssl -hide -o results.json
 ```
 
 ### Command-Line Options
