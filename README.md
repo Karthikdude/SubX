@@ -208,6 +208,18 @@ subx -api -api-port 8080
 subx -l subdomains.txt -proxy socks5://127.0.0.1:9050 -ua "Mozilla/5.0 SubX Security Scanner"
 ```
 
+#### Check for Updates
+
+```bash
+subx -update
+```
+
+#### Automatically Upgrade to the Latest Version
+
+```bash
+subx -upgrade
+```
+
 #### Enable Slack Notifications
 
 ```bash
@@ -291,6 +303,10 @@ curl -X POST -H "Content-Type: application/json" -d '{"domains":["example.com"],
 - `-master`: Master node address for distributed scanning
 - `-worker`: Run as worker node for distributed scanning
 - `-worker-port`: Port for worker node
+- `-update`: Check for updates to SubX
+- `-upgrade`: Automatically upgrade SubX to the latest version
+- `-update-url`: URL to check for updates (default: GitHub API)
+- `-force-update`: Force update even if current version is up to date
 
 ## Features
 

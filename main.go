@@ -19,6 +19,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -348,6 +350,12 @@ var (
 	masterFlag        = flag.String("master", "", "Master node address for distributed scanning")
 	workerFlag        = flag.Bool("worker", false, "Run as worker node for distributed scanning")
 	workerPortFlag    = flag.Int("worker-port", 8082, "Port for worker node")
+	
+	// Update and upgrade flags
+	updateFlag        = flag.Bool("update", false, "Check for updates to SubX")
+	upgradeFlag       = flag.Bool("upgrade", false, "Automatically upgrade SubX to the latest version")
+	updateURLFlag     = flag.String("update-url", "https://api.github.com/repos/Karthikdude/SubX/releases/latest", "URL to check for updates")
+	forceUpdateFlag   = flag.Bool("force-update", false, "Force update even if current version is up to date")
 )
 
 // Pre-defined mapping of known CNAME components to their respective service names.
@@ -1584,6 +1592,34 @@ func main() {
 	// Log startup information
 	logger.Printf("SubX v%s - Subdomain Takeover Scanner", VERSION)
 	
+	// Handle update and upgrade flags first
+	if *updateFlag || *upgradeFlag {
+		latestVersion, hasUpdate, err := checkForUpdates()
+		if err != nil {
+			logger.Fatalf("Error checking for updates: %v", err)
+		}
+		
+		if hasUpdate {
+			fmt.Printf("A new version of SubX is available: %s (current: %s)\n", latestVersion, VERSION)
+			
+			if *upgradeFlag {
+				// Perform the upgrade
+				if err := upgradeSubX(); err != nil {
+					logger.Fatalf("Error upgrading SubX: %v", err)
+				}
+				// Exit after upgrade
+				os.Exit(0)
+			}
+		} else {
+			fmt.Printf("SubX is up to date (version %s)\n", VERSION)
+		}
+		
+		// If only checking for updates, exit after reporting
+		if *updateFlag && !*upgradeFlag {
+			os.Exit(0)
+		}
+	}
+	
 	// Load configuration file if specified
 	if *configFlag != "" {
 		if err := loadConfig(*configFlag); err != nil {
@@ -1874,6 +1910,262 @@ func startWorkerNode() {
 // startInteractiveMode starts the interactive CLI mode
 func startInteractiveMode(subdomains []string, results chan<- Result) {
 	// Implementation for interactive mode
+}
+
+// checkForUpdates checks if a newer version of SubX is available
+func checkForUpdates() (string, bool, error) {
+	logger.Printf("Checking for updates from %s...", *updateURLFlag)
+	
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: time.Second * 10,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: *sslFlag},
+			Proxy:           http.ProxyFromEnvironment,
+		},
+	}
+	
+	// Set up request with custom user agent
+	req, err := http.NewRequest("GET", *updateURLFlag, nil)
+	if err != nil {
+		return "", false, fmt.Errorf("error creating request: %v", err)
+	}
+	req.Header.Set("User-Agent", *userAgentFlag)
+	
+	// Make request to GitHub API
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", false, fmt.Errorf("error checking for updates: %v", err)
+	}
+	defer resp.Body.Close()
+	
+	// Check response status
+	if resp.StatusCode != http.StatusOK {
+		return "", false, fmt.Errorf("received non-OK response: %s", resp.Status)
+	}
+	
+	// Parse response
+	var release struct {
+		TagName     string `json:"tag_name"`
+		Name        string `json:"name"`
+		PublishedAt string `json:"published_at"`
+		Body        string `json:"body"`
+		Assets      []struct {
+			Name               string `json:"name"`
+			BrowserDownloadURL string `json:"browser_download_url"`
+		} `json:"assets"`
+	}
+	
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return "", false, fmt.Errorf("error parsing response: %v", err)
+	}
+	
+	// Extract version number from tag name (remove 'v' prefix if present)
+	latestVersion := release.TagName
+	if len(latestVersion) > 0 && latestVersion[0] == 'v' {
+		latestVersion = latestVersion[1:]
+	}
+	
+	// Compare versions
+	currentVersion := VERSION
+	hasUpdate := compareVersions(currentVersion, latestVersion) < 0 || *forceUpdateFlag
+	
+	return latestVersion, hasUpdate, nil
+}
+
+// compareVersions compares two semantic version strings
+// Returns -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2
+func compareVersions(v1, v2 string) int {
+	// Split versions into components
+	parts1 := strings.Split(v1, ".")
+	parts2 := strings.Split(v2, ".")
+	
+	// Compare each component
+	for i := 0; i < len(parts1) && i < len(parts2); i++ {
+		// Parse component to integer
+		num1, err1 := strconv.Atoi(parts1[i])
+		num2, err2 := strconv.Atoi(parts2[i])
+		
+		// Handle parsing errors
+		if err1 != nil || err2 != nil {
+			// Fall back to string comparison if parsing fails
+			if parts1[i] < parts2[i] {
+				return -1
+			} else if parts1[i] > parts2[i] {
+				return 1
+			}
+			continue
+		}
+		
+		// Compare numeric values
+		if num1 < num2 {
+			return -1
+		} else if num1 > num2 {
+			return 1
+		}
+	}
+	
+	// If all components so far are equal, the longer version is considered greater
+	if len(parts1) < len(parts2) {
+		return -1
+	} else if len(parts1) > len(parts2) {
+		return 1
+	}
+	
+	// Versions are equal
+	return 0
+}
+
+// upgradeSubX downloads and installs the latest version of SubX
+func upgradeSubX() error {
+	// Get the latest version information
+	latestVersion, hasUpdate, err := checkForUpdates()
+	if err != nil {
+		return fmt.Errorf("error checking for updates: %v", err)
+	}
+	
+	// Check if update is needed
+	if !hasUpdate && !*forceUpdateFlag {
+		fmt.Printf("SubX is already at the latest version (%s).\n", VERSION)
+		return nil
+	}
+	
+	// Get current executable path
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("error getting executable path: %v", err)
+	}
+	
+	// Create a backup of the current executable
+	backupPath := execPath + ".backup"
+	if err := copyFile(execPath, backupPath); err != nil {
+		return fmt.Errorf("error creating backup: %v", err)
+	}
+	
+	fmt.Printf("Upgrading SubX from %s to %s...\n", VERSION, latestVersion)
+	
+	// Determine platform and architecture
+	var platform string
+	var arch string
+	
+	switch runtime.GOOS {
+	case "windows":
+		platform = "windows"
+	case "darwin":
+		platform = "macos"
+	case "linux":
+		platform = "linux"
+	default:
+		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
+	}
+	
+	switch runtime.GOARCH {
+	case "amd64":
+		arch = "amd64"
+	case "386":
+		arch = "386"
+	case "arm64":
+		arch = "arm64"
+	case "arm":
+		arch = "arm"
+	default:
+		return fmt.Errorf("unsupported architecture: %s", runtime.GOARCH)
+	}
+	
+	// Construct download URL
+	downloadURL := fmt.Sprintf("https://github.com/Karthikdude/SubX/releases/download/v%s/subx_%s_%s", latestVersion, platform, arch)
+	if platform == "windows" {
+		downloadURL += ".exe"
+	}
+	
+	// Download the new version
+	fmt.Printf("Downloading from %s...\n", downloadURL)
+	
+	client := &http.Client{
+		Timeout: time.Minute * 5, // Longer timeout for download
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: *sslFlag},
+			Proxy:           http.ProxyFromEnvironment,
+		},
+	}
+	
+	req, err := http.NewRequest("GET", downloadURL, nil)
+	if err != nil {
+		return fmt.Errorf("error creating download request: %v", err)
+	}
+	req.Header.Set("User-Agent", *userAgentFlag)
+	
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("error downloading update: %v", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("received non-OK response when downloading: %s", resp.Status)
+	}
+	
+	// Create temporary file for download
+	tempFile, err := os.CreateTemp("", "subx-update-*")
+	if err != nil {
+		return fmt.Errorf("error creating temporary file: %v", err)
+	}
+	tempPath := tempFile.Name()
+	defer os.Remove(tempPath) // Clean up temp file on exit
+	
+	// Copy download to temporary file
+	if _, err := io.Copy(tempFile, resp.Body); err != nil {
+		tempFile.Close()
+		return fmt.Errorf("error saving download: %v", err)
+	}
+	tempFile.Close()
+	
+	// Make temporary file executable (Unix only)
+	if platform != "windows" {
+		if err := os.Chmod(tempPath, 0755); err != nil {
+			return fmt.Errorf("error setting executable permissions: %v", err)
+		}
+	}
+	
+	// Replace current executable with the new version
+	if err := replaceFile(tempPath, execPath); err != nil {
+		// Try to restore backup on failure
+		replaceFile(backupPath, execPath)
+		return fmt.Errorf("error installing update: %v\nRestored backup.", err)
+	}
+	
+	fmt.Printf("Successfully upgraded SubX to version %s!\n", latestVersion)
+	return nil
+}
+
+// copyFile copies a file from src to dst
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+	
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+	
+	_, err = io.Copy(dstFile, srcFile)
+	return err
+}
+
+// replaceFile replaces the target file with the source file
+func replaceFile(src, dst string) error {
+	// On Windows, we need to rename the destination file first
+	if runtime.GOOS == "windows" {
+		// Remove the destination file if it exists
+		os.Remove(dst)
+	}
+	
+	// Move the source file to the destination
+	return os.Rename(src, dst)
 }
 
 // generateHTMLReport generates an HTML report from the results
