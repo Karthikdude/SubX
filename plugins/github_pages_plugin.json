@@ -1,0 +1,20 @@
+{
+  "name": "GitHub Pages Takeover Detector",
+  "description": "Detects potential takeover vulnerabilities in GitHub Pages sites",
+  "version": "1.0.0",
+  "author": "SubX Team",
+  "fingerprints": [
+    {
+      "cname": ["github.io", "github.com", "*.github.io"],
+      "headers": {},
+      "body": [
+        "There isn't a GitHub Pages site here",
+        "For root URLs (like http://example.com/) you must provide an index.html file",
+        "Page not found",
+        "404 - File or directory not found"
+      ],
+      "status": [404],
+      "risk": "high"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "Heroku Takeover Detector",
+  "description": "Detects potential takeover vulnerabilities in abandoned Heroku applications",
+  "version": "1.0.0",
+  "author": "SubX Team",
+  "fingerprints": [
+    {
+      "cname": ["herokuapp.com", "*.herokuapp.com"],
+      "headers": {},
+      "body": [
+        "No such app",
+        "heroku.com/apps/",
+        "Heroku | No such app",
+        "There's nothing here, yet."
+      ],
+      "status": [404],
+      "risk": "high"
+    }
+  ]
+}

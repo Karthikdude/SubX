@@ -1,0 +1,20 @@
+{
+  "name": "Netlify Takeover Detector",
+  "description": "Detects potential takeover vulnerabilities in unclaimed Netlify deployments",
+  "version": "1.0.0",
+  "author": "SubX Team",
+  "fingerprints": [
+    {
+      "cname": ["netlify.app", "netlify.com", "*.netlify.app"],
+      "headers": {},
+      "body": [
+        "Not found",
+        "Welcome to Netlify",
+        "No site for this hostname",
+        "Site not found"
+      ],
+      "status": [404, 403],
+      "risk": "medium"
+    }
+  ]
+}

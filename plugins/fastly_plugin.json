@@ -1,0 +1,21 @@
+{
+  "name": "Fastly CDN Takeover Detector",
+  "description": "Detects potential takeover vulnerabilities in misconfigured Fastly CDN endpoints",
+  "version": "1.0.0",
+  "author": "SubX Team",
+  "fingerprints": [
+    {
+      "cname": ["fastly.net", "*.fastly.net", "global.prod.fastly.net"],
+      "headers": {
+        "Fastly-Error": "unknown domain"
+      },
+      "body": [
+        "Fastly error: unknown domain",
+        "Please check that this domain has been added to a service",
+        "Unknown domain"
+      ],
+      "status": [404, 500],
+      "risk": "high"
+    }
+  ]
+}
