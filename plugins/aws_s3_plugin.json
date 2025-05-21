@@ -1,0 +1,20 @@
+{
+  "name": "AWS S3 Bucket Takeover Detector",
+  "description": "Detects potential takeover vulnerabilities in AWS S3 buckets",
+  "version": "1.0.0",
+  "author": "SubX Team",
+  "fingerprints": [
+    {
+      "cname": ["s3.amazonaws.com", "s3-website", "amazonaws.com"],
+      "headers": {
+        "x-amz-error-code": "NoSuchBucket"
+      },
+      "body": [
+        "The specified bucket does not exist",
+        "NoSuchBucket"
+      ],
+      "status": [404, 403],
+      "risk": "high"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+# SubX Configuration File
+
+general:
+  threads: 200
+  timeout: 30
+  rate_limit: 20.0
+  adaptive_rate: true
+  user_agent: "SubX/2.0 (https://github.com/Karthikdude/SubX)"
+  verbose: 1
+
+input:
+  # url: "example.com"  # Uncomment to scan a single domain
+  # list: "subdomains.txt"  # Uncomment to scan a list of domains
+
+output:
+  # file: "results.json"  # Uncomment to save results to a file
+  # format: "json"  # Options: json, html, csv, txt
+  hide_failed: false
+  hide_errors: false
+  show_cname: true
+
+network:
+  https: true
+  skip_ssl: true
+  # proxy: "socks5://127.0.0.1:9050"  # Uncomment to use a proxy
+  # dns_server: "8.8.8.8:53"  # Uncomment to use a custom DNS server
+  # doh: "https://cloudflare-dns.com/dns-query"  # Uncomment to use DNS over HTTPS
+  respect_robots: false
+
+features:
+  screenshots: false
+  screenshot_dir: "./screenshots"
+  database: "./subx.db"
+  api: false
+  api_port: 8080
+  web_ui: false
+  web_port: 8081
+  resumable: false
+  resume_file: "./subx-resume.json"
+  plugin_dir: "./plugins"
+  interactive: false
+  distributed: false
+  # master: "http://master-node:8082"  # Uncomment for distributed scanning
+  worker: false
+  worker_port: 8082
+
+notifications:
+  # slack: "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"  # Uncomment to enable Slack notifications
+  # discord: "https://discord.com/api/webhooks/YOUR/DISCORD/WEBHOOK"  # Uncomment to enable Discord notifications
+  # email: "your-email@example.com"  # Uncomment to enable email notifications
+  smtp:
+    # server: "smtp.example.com:587"  # Uncomment to specify SMTP server
+    # username: "username"  # Uncomment to specify SMTP username
+    # password: "password"  # Uncomment to specify SMTP password
